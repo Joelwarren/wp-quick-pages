@@ -8,16 +8,23 @@
 	Author URI: http://snaptortoise.com
 */
 
-add_action('admin_menu', 'wqp_admin_init');
-function wqp_admin_init() {
-	add_pages_page("WP Quick Pages", "WP Quick Pages", "read", "wp-quick-pages", array('WPQuickPages', 'quick_pages'));
+if ( ! defined ( 'ABSPATH' ) ) {
+	exit;
 }
 
 class WPQuickPages {
 
-	function quick_pages() {
+	public function __construct() {
+		add_action( 'admin_menu', array( $this, 'add_admin_menu' ) );
+	}
 	
-		WPQuickPages::header("Quick Pages"); ?>
+	public function add_admin_menu() {
+		add_pages_page( "WP Quick Pages", "WP Quick Pages", "read", "wp-quick-pages", array(&$this, 'quick_pages_view') );
+	}
+
+	public function quick_pages_view() {
+	
+		$this->header("Quick Pages"); ?>
 			<div class="inner-sidebar">
 				<p>You can quickly add blank, published pages with hierarchies by following this simple format:</p>
 				
@@ -47,71 +54,72 @@ Contact
 							</form>
 						</div><!-- .wp-editor-container -->
 					</div><!-- .wp-editor-wrap -->
-					<?php
-					if ( $_POST["pages"] ) {
-						echo "<h2>Results</h2>";
-						$pages = ( explode("\n",$_POST["pages"]) );
-						$site = array();
-
-						foreach ( $pages as $key => $page ) {
-							$page = trim( $page );
-							$parent = 0;
-							$parent_id = 0;
-							preg_match( "/^[\-]+/", $page, $child );
-							
-							if ( @$child[0] ) {
-								$depth = strlen( $child[0] ) - 1;
-								$page = trim( substr($page, $depth + 1) );
-								
-								// cycle through and find parent
-								for ( $i = $key; $i--; $i >= 0 ) {
-									// if we find it...
-									$pattern = "/^[\-]{".$depth."}[^\-]/";
-										
-									if ( (preg_match($pattern, $pages[$i], $test) && $depth > 0) || ($depth == 0 && substr($pages[$i], 0, 1) != "-") ) {
-										// Get the WordPress page ID
-										$parent = $site[$i]["post_title"];
-										$parent_id = $site[$i]["id"];
-										$parent_key = $i;
-										$i = false;
-									}
-								}
-							}
-
-							$page_array = array(
-								"post_title" => $page,
-								"post_parent" => $parent_id,
-								"post_status" => "publish",
-								"post_type" => "page"
-							);
-
-							$post_id = wp_insert_post( $page_array, $wp_error );
-							$page_array["id"] = $post_id;
-							$page_array["parent_key"] = $parent_key;
-							$site[$key] = $page_array;
-							
-							?>
-							<p>
-								Creating <strong>
-								<?php 
-								if ($parent_id > 0) {
-									echo $parent;
-								} 
-								echo $page;
-								?>
-								</strong>
-							</p>
-							<?php
-						}
-						
-					}
-					?>
+					<?php if ( isset($_POST["pages"]) ) {
+						$this->insert_pages( $_POST["pages"] );
+					} ?>
 				</div><!-- #post-body-content -->
 			</div><!-- #post-body -->
-		<?php WPQuickPages::footer();
+		<?php $this->footer();
+	}
+	
+	public function insert_pages( $pages ) {
+		echo "<h2>Results</h2>";
+		$pages = ( explode("\n", $pages) );
+		$site = array();
+
+		foreach ( $pages as $key => $page ) {
+			$page = trim( $page );
+			$parent = 0;
+			$parent_id = 0;
+			preg_match( "/^[\-]+/", $page, $child );
+			
+			if ( @$child[0] ) {
+				$depth = strlen( $child[0] ) - 1;
+				$page = trim( substr($page, $depth + 1) );
+				
+				// cycle through and find parent
+				for ( $i = $key; $i--; $i >= 0 ) {
+					// if we find it...
+					$pattern = "/^[\-]{".$depth."}[^\-]/";
+						
+					if ( (preg_match($pattern, $pages[$i], $test) && $depth > 0) || ($depth == 0 && substr($pages[$i], 0, 1) != "-") ) {
+						// Get the WordPress page ID
+						$parent = $site[$i]["post_title"];
+						$parent_id = $site[$i]["id"];
+						$parent_key = $i;
+						$i = false;
+					}
+				}
+			}
+
+			$page_array = array(
+				"post_title" => $page,
+				"post_parent" => $parent_id,
+				"post_status" => "publish",
+				"post_type" => "page"
+			);
+
+			$post_id = wp_insert_post( $page_array, $wp_error );
+			$page_array["id"] = $post_id;
+			$page_array["parent_key"] = $parent_key;
+			$site[$key] = $page_array;
+			
+			?>
+			<p>
+				Creating <strong>
+				<?php 
+				if ($parent_id > 0) {
+					echo $parent;
+				} 
+				echo $page;
+				?>
+				</strong>
+			</p>
+			<?php
+		}
 	}
 
-	function header( $title ) { ?>
+	public function header( $title ) { ?>
 		<div class="wrap columns-2">
 			<div id="icon-edit-pages" class="icon32"><br /></div>
 			<h2><?php echo $title; ?></h2>
@@ -119,8 +127,17 @@ Contact
 		<?php
 	}
 
-	function footer() { ?>
+	public function footer() { ?>
 		</div><!-- .wrap -->
 		<?php
 	}
 }
+
+/**
+ * Start
+ */
+function WPQuickPages() {
+	global $WPQuickPages;
+	$WPQuickPages = new WPQuickPages();
+}
+add_action('init', 'WPQuickPages');
